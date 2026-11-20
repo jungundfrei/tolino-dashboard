@@ -41,7 +41,7 @@
   .ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .small { font-size: .72rem; }
   .muted { color: #444; }
-  .h { font-size: .66rem; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: .15rem; margin: .55rem 0 .35rem; }
+  .h { font-size: .66rem; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: .15rem; margin: .9rem 0 .4rem; }
   .blk { background: #000; color: #fff; }
   .pill { display: inline-block; font-size: .62rem; font-weight: bold; padding: .05rem .3rem; border: 1.5px solid #000; border-radius: .25rem; }
   .pill.blk { border-color: #000; }
@@ -70,6 +70,8 @@
   .spalten { -webkit-box-align: start; -webkit-align-items: flex-start; align-items: flex-start; margin-top: .2rem; }
   .spalten .sp { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; }
   .spalten .sp + .sp { margin-left: .9rem; }
+  .danach { margin-top: .35rem; padding-bottom: .4rem; border-bottom: 1px solid #000; }
+  .danach + .h, .hero + .h { margin-top: 1.1rem; }
   .quer #nav { width: 4.2rem; }
   .quer .tab svg { width: 1.6rem; height: 1.6rem; }
   .quer .temp { font-size: 3rem; }
@@ -434,7 +436,7 @@
           '</b></span><span class="small" style="width:2.6rem">' + (x.ganztags ? "ganzt." : hm(x.start)) + '</span><span class="grow ell small">' + esc(x.titel) + "</span></div>";
         n++;
       }
-      if (danach) bk += '<div style="margin-top:.3rem">' + danach + "</div>";
+      if (danach) bk += '<div class="danach">' + danach + "</div>";
       return h + '<div class="row spalten"><div class="sp">' + bw + bt + bi + '</div><div class="sp">' + bk + bn + "</div></div>";
     }
     return h + bw + bt + bk + bn + bi;
