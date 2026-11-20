@@ -16,7 +16,7 @@ const STATE = path.join(ROOT, "state", "state.json"); // Netatmo-Tokens, über d
 // Die Seite blendet vergangene Abfahrten selbst aus, darum genügend Abfahrten im Voraus holen.
 async function oev(stationen) {
   const listen = await Promise.all(stationen.map(async st => {
-    const url = `https://transport.opendata.ch/v1/stationboard?station=${encodeURIComponent(st)}&limit=40`;
+    const url = `https://transport.opendata.ch/v1/stationboard?station=${encodeURIComponent(st)}&limit=80`;
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`${res.status} ${st}`);
     const d = await res.json();

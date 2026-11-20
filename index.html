@@ -227,6 +227,7 @@
 
   // ---------- Grundgerüst ----------
   var REFRESH_DATEN = 5 * 60 * 1000;   // data.json alle 5 Min. neu laden (GitHub aktualisiert alle ~15 Min.)
+  var OEV_VORLAUF = 10;                // Abfahrten Wiedikon erst ab so vielen Minuten nach jetzt zeigen (Weg zum Bahnhof)
   var OEV_LIVE = true;                 // ÖV direkt bei transport.opendata.ch holen, wenn der Tolino das schafft
   var WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
   var WD_VOLL = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
@@ -465,7 +466,7 @@
     var offen = stationen.length, alle = [], fehlerZahl = 0;
     oevLiveLaeuft = true;
     for (var i = 0; i < stationen.length; i++) (function (st) {
-      holen("https://transport.opendata.ch/v1/stationboard?limit=25&station=" + encodeURIComponent(st), function (j) {
+      holen("https://transport.opendata.ch/v1/stationboard?limit=40&station=" + encodeURIComponent(st), function (j) {
         var sb = j.stationboard || [];
         for (var n = 0; n < sb.length; n++) {
           var a = sb[n], stop = a.stop || {}, prog = stop.prognosis || {};
@@ -751,12 +752,12 @@
     var now = Date.now(), items = [];
     for (var i = 0; i < quelle.abfahrten.length; i++) {
       var a = quelle.abfahrten[i], min = Math.floor((a.ab - now) / 60000);
-      if (min < 0) continue;
+      if (min < OEV_VORLAUF) continue;
       items.push({ html: '<div class="it row"><span class="linie ' + a.typ + '">' + esc(a.linie) + '</span><div class="grow"><div class="tt ell"><b>' + esc(a.ziel) +
         '</b></div><div class="small muted ell">' + hm(a.plan) + (a.delay ? ' <b>+' + a.delay + "'</b>" : "") + (a.gleis ? " · " + (a.typ === "zug" ? "Gleis " : "Kante ") + esc(a.gleis) : "") +
         '</div></div><div class="min">' + (min === 0 ? "jetzt" : min + "'") + "</div></div>" });
     }
-    var kopf = oevUmschalter((quelle === liveOev ? "live · " : "Fahrplan · Stand ") + hm(quelle.stand));
+    var kopf = oevUmschalter("ab " + hm(now + OEV_VORLAUF * 60000) + " · " + (quelle === liveOev ? "live · " : "Fahrplan · Stand ") + hm(quelle.stand));
     if (!items.length) return kopf + '<div class="leer">Keine Abfahrten mehr in den Daten.<br>Neue kommen mit der nächsten Aktualisierung.</div>';
     return liste("oev", items, null, kopf);
   }
