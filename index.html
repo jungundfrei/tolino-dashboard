@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Zürich auf einen Blick</title>
+<!--
+  Tolino-Dashboard «Zürich auf einen Blick»
+  Bewusst in altem JavaScript (ES5) ohne Promise/fetch geschrieben, weil der Tolino Shine 3
+  mit Android 4.4 einen sehr alten Browser hat. Schwarz/Weiss, keine Animationen (E-Ink).
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #fff; color: #000; overflow: hidden; }
+  body { font-family: "Roboto", "Droid Sans", Arial, sans-serif; -webkit-user-select: none; user-select: none; }
+  #app { display: -webkit-box; display: -webkit-flex; display: flex; height: 100%; }
+
+  /* Seitenleiste mit Tabs */
+  #nav { width: 4.6rem; border-right: 2px solid #000; display: -webkit-box; display: -webkit-flex; display: flex;
+         -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
+  .tab { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; text-align: center; border-bottom: 1px solid #000;
+         display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+         -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+         font-size: .78rem; font-weight: bold; }
+  .tab:last-child { border-bottom: 0; }
+  .tab svg { width: 1.9rem; height: 1.9rem; margin-bottom: .25rem; }
+  .tab.on { background: #000; color: #fff; }
+  .tab.on svg * { stroke: #fff; }
+
+  #main { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; padding: .7rem .8rem .5rem; position: relative; overflow: hidden;
+          display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
+  #view { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; overflow: hidden; position: relative; }
+  #foot { font-size: .62rem; color: #333; border-top: 1px solid #000; padding-top: .25rem; margin-top: .3rem;
+          display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; }
+  #foot b { background: #000; color: #fff; padding: 0 .25rem; }
+
+  .row { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; }
+  .grow { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; }
+  .between { -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; }
+  .ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .small { font-size: .72rem; }
+  .muted { color: #444; }
+  .h { font-size: .66rem; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: .15rem; margin: .55rem 0 .35rem; }
+  .blk { background: #000; color: #fff; }
+  .pill { display: inline-block; font-size: .62rem; font-weight: bold; padding: .05rem .3rem; border: 1.5px solid #000; border-radius: .25rem; }
+  .pill.blk { border-color: #000; }
+
+  /* Heute */
+  .kopf .tag { font-size: 1.15rem; font-weight: bold; }
+  .kopf .uhr { font-size: 1.9rem; font-weight: bold; line-height: 1; }
+  .wetter svg.big { width: 4.6rem; height: 4.6rem; margin-right: .5rem; }
+  .temp { font-size: 3.4rem; font-weight: bold; line-height: 1; letter-spacing: -.04em; }
+  .hint { border: 2px solid #000; border-radius: .35rem; padding: .2rem .35rem; margin-right: .35rem; font-size: .72rem; }
+  .hint b { display: block; font-size: .85rem; }
+  .hint.blk { background: #000; color: #fff; }
+  .tage { margin-top: .2rem; }
+  .tage > div { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; text-align: center; font-size: .72rem; }
+  .tage svg { width: 1.8rem; height: 1.8rem; display: block; margin: .1rem auto; }
+  .tage .rh { background: #000; color: #fff; padding: 0 .2rem; }
+  .hero { border: 2px solid #000; border-radius: .4rem; padding: .35rem .45rem; }
+  .hero .zeitbox { background: #000; color: #fff; border-radius: .3rem; padding: .15rem .4rem; text-align: center; margin-right: .5rem; }
+  .hero .zeitbox small { display: block; font-size: .58rem; font-weight: bold; letter-spacing: .05em; }
+  .hero .zeitbox b { font-size: 1.35rem; }
+  .hero .titel { font-size: 1.05rem; font-weight: bold; }
+  .nt > div { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; padding: 0 .4rem; border-left: 1px solid #000; }
+  .nt > div:first-child { border-left: 0; padding-left: 0; }
+  .nt .v { font-size: 1.55rem; font-weight: bold; line-height: 1.1; }
+  .info > div { margin: .12rem 0; font-size: .78rem; }
+  .spalten { -webkit-box-align: start; -webkit-align-items: flex-start; align-items: flex-start; margin-top: .2rem; }
+  .spalten .sp { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; }
+  .spalten .sp + .sp { margin-left: .9rem; }
+  .quer #nav { width: 4.2rem; }
+  .quer .tab svg { width: 1.6rem; height: 1.6rem; }
+  .quer .temp { font-size: 3rem; }
+  .quer .wetter svg.big { width: 3.8rem; height: 3.8rem; }
+  .info .pill { margin-right: .3rem; min-width: 2.6rem; text-align: center; }
+
+  /* Listen (Termine, ÖV, News) */
+  .liste .it { border-bottom: 1px solid #000; padding: .3rem 0; }
+  .tagkopf { font-size: .66rem; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; margin-top: .45rem; padding: .1rem .3rem; background: #000; color: #fff; }
+  .tagkopf.erst { margin-top: 0; }
+  .tz { width: 3.3rem; font-weight: bold; font-size: .9rem; }
+  .tt { font-size: .9rem; }
+  .linie { min-width: 2.4rem; text-align: center; font-weight: bold; font-size: .82rem; border: 2px solid #000; border-radius: .3rem; padding: .05rem .15rem; margin-right: .45rem; }
+  .linie.zug { background: #000; color: #fff; }
+  .linie.bus { border-radius: 1rem; }
+  .min { width: 3.2rem; text-align: right; font-weight: bold; font-size: 1.05rem; }
+  .ab { width: 2.9rem; text-align: right; font-size: .75rem; }
+  .knopf { font-size: .8rem; padding: .2rem .5rem; margin-right: .35rem; }
+  .weg { margin-top: .2rem; line-height: 1.9; }
+  .weg .linie { min-width: 0; padding: 0 .25rem; font-size: .72rem; }
+  .news .zeit { font-size: .62rem; font-weight: bold; }
+  .news .titel { font-size: .95rem; font-weight: bold; line-height: 1.2; }
+  .news .lead { font-size: .76rem; line-height: 1.3; margin-top: .1rem; color: #222; }
+  .neu { background: #000; color: #fff; font-size: .58rem; font-weight: bold; padding: 0 .2rem; margin-left: .2rem; }
+
+  /* Blättern */
+  #pager { position: absolute; right: 0; bottom: 0; }
+  #pager span { display: inline-block; border: 2px solid #000; border-radius: .3rem; background: #fff; font-weight: bold;
+                font-size: 1rem; width: 2.6rem; text-align: center; padding: .15rem 0; margin-left: .35rem; }
+  #pager span.off { border-color: #aaa; color: #aaa; }
+  #pager span.seite { border: 0; width: auto; font-size: .62rem; font-weight: normal; margin-right: .1rem; }
+
+  .leer { margin-top: 2rem; text-align: center; font-size: .9rem; }
+  .leer input { font-size: 1rem; width: 90%; padding: .3rem; margin: .6rem 0; border: 2px solid #000; }
+  .leer .btn { display: inline-block; border: 2px solid #000; padding: .3rem .8rem; font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="nav"></div>
+  <div id="main">
+    <div id="view"></div>
+    <div id="foot"><span id="stand"></span><span id="status"></span></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Grundgerüst ----------
+  var REFRESH_DATEN = 5 * 60 * 1000;   // data.json alle 5 Min. neu laden (GitHub aktualisiert alle ~15 Min.)
+  var OEV_LIVE = true;                 // ÖV direkt bei transport.opendata.ch holen, wenn der Tolino das schafft
+  var WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  var WD_VOLL = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MON = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  var WCODE = { 0: "Klar", 1: "Meist klar", 2: "Teils bewölkt", 3: "Bedeckt", 45: "Nebel", 48: "Reifnebel", 51: "Leichter Niesel",
+    53: "Niesel", 55: "Starker Niesel", 56: "Gefr. Niesel", 57: "Gefr. Niesel", 61: "Leichter Regen", 63: "Regen", 65: "Starker Regen",
+    66: "Gefr. Regen", 67: "Gefr. Regen", 71: "Leichter Schnee", 73: "Schnee", 75: "Starker Schnee", 77: "Schneegriesel",
+    80: "Regenschauer", 81: "Regenschauer", 82: "Heftige Schauer", 85: "Schneeschauer", 86: "Schneeschauer", 95: "Gewitter",
+    96: "Gewitter, Hagel", 99: "Gewitter, Hagel" };
+
+  var D = null;            // zuletzt geladene Daten
+  var geladenUm = 0;
+  var ladeFehler = "";
+  var liveOev = null;      // { stand, abfahrten } wenn live geholt
+  var liveRoute = null;    // { stand, verbindungen } wenn live geholt
+  var oevModus = "ab";     // "ab" = Abfahrten Wiedikon, "route" = Verbindungen zum Flughafen
+  var tab = "heute";
+  var seite = { termine: 0, news: 0, oev: 0 };
+  var seitenStarts = { termine: [0], news: [0], oev: [0] };
+  var letztesHtml = "";
+
+  function $(id) { return document.getElementById(id); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function hm(ms) { var d = new Date(ms); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function tagKey(ms) { var d = new Date(ms); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function tageBis(key) { // Tage von heute bis Datum "YYYY-MM-DD"
+    var p = key.split("-"), a = new Date(), b = new Date(+p[0], +p[1] - 1, +p[2]);
+    a = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+    return Math.round((b - a) / 86400000);
+  }
+  function tagLabel(key) {
+    var t = tageBis(key), p = key.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2]);
+    if (t === 0) return "Heute";
+    if (t === 1) return "Morgen";
+    return WD_VOLL[d.getDay()] + " " + (+p[2]) + ". " + MON[d.getMonth()];
+  }
+  function zahl(v) { return String(v).replace(".", ",").replace("-", "−"); }
+  // "2026-11-20T14:52:00+0100" → ms (alte Browser verstehen den Offset ohne Doppelpunkt nicht)
+  function isoMs(s) {
+    if (!s) return 0;
+    var m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)(?::(\d\d))?(?:\.\d+)?(Z|([+-])(\d\d):?(\d\d))?$/.exec(s);
+    if (!m) return 0;
+    var ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+    if (m[7] && m[7] !== "Z") ms -= (m[8] === "-" ? -1 : 1) * (+m[9] * 60 + +m[10]) * 60000;
+    return ms;
+  }
+
+  // ---------- Symbole (SVG, nur Linien) ----------
+  var S = 'fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"';
+  var ICON = {
+    sun: '<circle cx="24" cy="24" r="8"/><path d="M24 6v5M24 37v5M6 24h5M37 24h5M11.3 11.3l3.5 3.5M33.2 33.2l3.5 3.5M11.3 36.7l3.5-3.5M33.2 14.8l3.5-3.5"/>',
+    cloud: '<path d="M14 35h21a8 8 0 0 0 0-16 11 11 0 0 0-21-1 9 9 0 0 0 0 17z"/>',
+    partly: '<path d="M17 9v3M8 18h3M10.6 11.6l2.1 2.1M23.4 11.6l-2.1 2.1"/><path d="M12.5 21a5 5 0 0 1 9-4"/><path d="M16 38h19a7 7 0 0 0 0-14 10 10 0 0 0-19-1 7.5 7.5 0 0 0 0 15z"/>',
+    fog: '<path d="M14 26h21a8 8 0 0 0 0-16 11 11 0 0 0-21-1 9 9 0 0 0 0 17zM8 33h32M12 39h24"/>',
+    rain: '<path d="M14 28h21a8 8 0 0 0 0-16 11 11 0 0 0-21-1 9 9 0 0 0 0 17zM16 34l-2 5M24 34l-2 5M32 34l-2 5"/>',
+    shower: '<path d="M17 7v3M9 15h3M11 9.5l2 2"/><path d="M14 28h21a8 8 0 0 0 0-16 11 11 0 0 0-21-1 9 9 0 0 0 0 17zM20 34l-2 5M29 34l-2 5"/>',
+    snow: '<path d="M14 28h21a8 8 0 0 0 0-16 11 11 0 0 0-21-1 9 9 0 0 0 0 17zM16 35h0M24 38h0M32 35h0M20 42h0M28 42h0" stroke-width="3.5"/>',
+    storm: '<path d="M14 28h21a8 8 0 0 0 0-16 11 11 0 0 0-21-1 9 9 0 0 0 0 17zM25 30l-4 7h6l-4 7"/>',
+    // Tabs
+    heute: '<rect x="7" y="10" width="34" height="31" rx="3"/><path d="M7 19h34M15 6v8M33 6v8"/><circle cx="24" cy="30" r="4"/>',
+    termine: '<path d="M10 12h28M10 24h28M10 36h28"/><circle cx="5" cy="12" r="1" /><circle cx="5" cy="24" r="1"/><circle cx="5" cy="36" r="1"/>',
+    oev: '<rect x="11" y="6" width="26" height="30" rx="5"/><path d="M11 22h26M17 42l3-6M31 42l-3-6"/><circle cx="17" cy="29" r="1.5"/><circle cx="31" cy="29" r="1.5"/>',
+    news: '<rect x="6" y="9" width="30" height="31" rx="2"/><path d="M36 17h6v19a4 4 0 0 1-8 0M12 16h18M12 23h18M12 30h11"/>'
+  };
+  function svg(name, cls) { return '<svg class="' + (cls || "") + '" viewBox="0 0 48 48"><g ' + S + ">" + (ICON[name] || ICON.cloud) + "</g></svg>"; }
+  function iconKind(c) {
+    if (c == null) return "cloud";
+    return c <= 1 ? "sun" : c === 2 ? "partly" : c === 3 ? "cloud" : c <= 48 ? "fog" : c <= 67 ? "rain" : c <= 77 ? "snow" : c <= 82 ? "shower" : c <= 86 ? "snow" : "storm";
+  }
+
+  // ---------- Tabs ----------
+  var TABS = [["heute", "Heute"], ["termine", "Termine"], ["oev", "ÖV"], ["news", "News"]];
+  function navZeichnen() {
+    var h = "";
+    for (var i = 0; i < TABS.length; i++) {
+      h += '<div class="tab' + (TABS[i][0] === tab ? " on" : "") + '" data-tab="' + TABS[i][0] + '">' + svg(TABS[i][0]) + TABS[i][1] + "</div>";
+    }
+    $("nav").innerHTML = h;
+  }
+  $("nav").addEventListener("click", function (e) {
+    var el = e.target;
+    while (el && el !== this && !el.getAttribute("data-tab")) el = el.parentNode;
+    if (!el || el === this) return;
+    var t = el.getAttribute("data-tab");
+    if (t === tab) { seite[t] = 0; } // nochmals tippen = zurück zur ersten Seite
+    tab = t;
+    navZeichnen();
+    zeichnen(true);
+    if (tab === "oev") oevLiveHolen();
+  });
+  $("view").addEventListener("click", function (e) {
+    var el = e.target;
+    var p = el.getAttribute && el.getAttribute("data-page");
+    if (p) {
+      var max = seitenStarts[tab].length - 1;
+      seite[tab] = Math.max(0, Math.min(seite[tab] + (+p), max + 1));
+      zeichnen(true);
+      return;
+    }
+    var m = el.getAttribute && el.getAttribute("data-oev");
+    if (!m && el.parentNode && el.parentNode.getAttribute) m = el.parentNode.getAttribute("data-oev");
+    if (m) { oevModus = m; seite.oev = 0; seitenStarts.oev = [0]; zeichnen(true); oevLiveHolen(); return; }
+    if (el.id === "keyok") {
+      var k = ($("keyin").value || "").replace(/\s/g, "");
+      if (k) { schluesselSpeichern(k); laden(); }
+    }
+  });
+
+  // ---------- Daten laden ----------
+  function schluessel() {
+    var m = /[#&]k=([A-Za-z0-9_-]+)/.exec(location.hash || "");
+    if (m) { schluesselSpeichern(m[1]); return m[1]; }
+    try { return localStorage.getItem("dashboard_key") || ""; } catch (e) { return ""; }
+  }
+  function schluesselSpeichern(k) { try { localStorage.setItem("dashboard_key", k); } catch (e) {} }
+
+  function holen(url, ok, fehler) {
+    var x = new XMLHttpRequest();
+    x.open("GET", url, true);
+    x.timeout = 15000;
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      if (x.status === 200) {
+        var j = null;
+        try { j = JSON.parse(x.responseText); } catch (e) { fehler("ungültige Daten"); return; }
+        ok(j);
+      } else fehler(x.status ? "HTTP " + x.status : "keine Verbindung");
+    };
+    x.ontimeout = function () { fehler("Zeitüberschreitung"); };
+    try { x.send(); } catch (e) { fehler(e.message); }
+  }
+
+  function laden() {
+    var k = schluessel();
+    if (!k) { zeichnen(true); return; }
+    holen(k + "/data.json?t=" + Date.now(), function (j) {
+      D = j; geladenUm = Date.now(); ladeFehler = "";
+      zeichnen(true);
+    }, function (f) { ladeFehler = f; zeichnen(false); });
+  }
+
+  // ÖV live direkt beim Fahrplandienst; klappt das nicht (z. B. Zertifikat zu neu für Android 4.4), bleiben die Daten aus GitHub.
+  var oevLiveLaeuft = false;
+  function oevLiveHolen() {
+    if (oevModus === "route") { routeLiveHolen(); return; }
+    if (!OEV_LIVE || oevLiveLaeuft) return;
+    var stationen = (D && D.oev && D.oev.stationen) || ["Zürich Wiedikon", "Zürich, Bahnhof Wiedikon"];
+    var offen = stationen.length, alle = [], fehlerZahl = 0;
+    oevLiveLaeuft = true;
+    for (var i = 0; i < stationen.length; i++) (function (st) {
+      holen("https://transport.opendata.ch/v1/stationboard?limit=25&station=" + encodeURIComponent(st), function (j) {
+        var sb = j.stationboard || [];
+        for (var n = 0; n < sb.length; n++) {
+          var a = sb[n], stop = a.stop || {}, prog = stop.prognosis || {};
+          var plan = isoMs(stop.departure), ab = isoMs(prog.departure) || plan;
+          var linie = (a.category || "") + (a.number && a.category !== a.number ? a.number : "");
+          linie = linie.replace(/^(T|B)(\d)/, "$2");
+          if (plan) alle.push({ linie: linie, typ: a.category === "T" ? "tram" : a.category === "B" ? "bus" : "zug",
+            ziel: (a.to || "").replace(/^Zürich,\s*/, ""), plan: plan, ab: ab, delay: stop.delay || 0,
+            gleis: prog.platform || stop.platform || "", halt: st });
+        }
+        fertig();
+      }, function () { fehlerZahl++; fertig(); });
+    })(stationen[i]);
+    function fertig() {
+      if (--offen > 0) return;
+      oevLiveLaeuft = false;
+      if (fehlerZahl < stationen.length && alle.length) {
+        alle.sort(function (a, b) { return a.ab - b.ab; });
+        liveOev = { stand: Date.now(), abfahrten: alle };
+      }
+      if (tab === "oev") zeichnen(false);
+    }
+  }
+
+  function routeLiveHolen() {
+    var R = D && D.route;
+    if (!OEV_LIVE || !R) return;
+    holen("https://transport.opendata.ch/v1/connections?limit=6&from=" + encodeURIComponent(R.von) + "&to=" + encodeURIComponent(R.nach), function (j) {
+      var cs = j.connections || [], out = [];
+      for (var i = 0; i < cs.length; i++) {
+        var c = cs[i], f = c.from || {}, teile = [], sec = c.sections || [];
+        for (var k = 0; k < sec.length; k++) {
+          var x = sec[k];
+          if (x.journey) {
+            var jn = x.journey, li = ((jn.category || "") + (jn.number && jn.category !== jn.number ? jn.number : "")).replace(/^(T|B)(\d)/, "$2");
+            teile.push({ linie: li, typ: jn.category === "T" ? "tram" : jn.category === "B" ? "bus" : "zug",
+              von: ((x.departure && x.departure.station && x.departure.station.name) || "").replace(/^Zürich,\s*/, ""),
+              bis: ((x.arrival && x.arrival.station && x.arrival.station.name) || "").replace(/^Zürich,\s*/, ""),
+              ab: ((x.departure && x.departure.departureTimestamp) || 0) * 1000,
+              gleis: (x.departure && ((x.departure.prognosis && x.departure.prognosis.platform) || x.departure.platform)) || "" });
+          } else if (x.walk && x.walk.duration > 59) teile.push({ fuss: Math.round(x.walk.duration / 60) });
+        }
+        var d = /(\d+)d(\d+):(\d+)/.exec(c.duration || "");
+        var plan = (f.departureTimestamp || 0) * 1000;
+        out.push({ plan: plan, ab: isoMs(f.prognosis && f.prognosis.departure) || plan, an: ((c.to && c.to.arrivalTimestamp) || 0) * 1000,
+          dauer: d ? +d[1] * 1440 + +d[2] * 60 + +d[3] : null, umsteigen: c.transfers || 0, delay: f.delay || 0, teile: teile });
+      }
+      if (out.length) { liveRoute = { stand: Date.now(), verbindungen: out }; if (tab === "oev") zeichnen(false); }
+    }, function () {});
+  }
+
+  // ---------- Ansichten ----------
+  function ansichtHeute() {
+    var now = new Date(), W = D.wetter, A = D.ausblick, N = D.netatmo, K = D.kalender, Z = D.zeit || {};
+    var bw = "", bt = "", bk = "", bn = "", bi = "";
+    var h = '<div class="row between kopf"><div><div class="tag">' + WD_VOLL[now.getDay()] + ", " + now.getDate() + ". " + MON[now.getMonth()] +
+      '</div><div class="small muted">' + (Z.kw ? "KW " + Z.kw + " · " : "") + esc(W && W.ort ? W.ort : "Zürich") + '</div></div><div class="uhr">' + hm(now.getTime()) + "</div></div>";
+
+    // Wetter
+    if (W && W.current) {
+      var c = W.current, code = c.weather_code;
+      var tmax = W.daily && W.daily.temperature_2m_max ? Math.round(W.daily.temperature_2m_max[0]) : null;
+      var tmin = W.daily && W.daily.temperature_2m_min ? Math.round(W.daily.temperature_2m_min[0]) : null;
+      bw += '<div class="row wetter" style="margin-top:.4rem">' + svg(W.icon || iconKind(code), "big") +
+        '<div class="temp">' + zahl(Math.round(c.temperature_2m)) + "°</div>" +
+        '<div class="grow" style="margin-left:.6rem"><b>' + esc(WCODE[code] || "") + "</b>" +
+        '<div class="small">gefühlt ' + zahl(Math.round(c.apparent_temperature)) + "°" + (tmin != null ? " · heute " + zahl(tmin) + "° / " + zahl(tmax) + "°" : "") + "</div>" +
+        (W.licht && W.licht.auf ? '<div class="small">Sonne ' + W.licht.auf + "–" + W.licht.unter + (W.licht.delta ? " · " + W.licht.delta : "") + "</div>" : "") +
+        "</div></div>";
+
+      // Hinweise aus dem Stundenverlauf (gleiche Regeln wie auf dem TRMNL)
+      var hr = W.hourly || {}, pmax = 0, msum = 0, ab = "", tlow = c.temperature_2m;
+      for (var i = 0; i < (hr.time || []).length; i++) {
+        var p = hr.precipitation_probability[i] || 0, mm = hr.precipitation[i] || 0;
+        if (p > pmax) pmax = p;
+        msum += mm;
+        if (!ab && (p >= 50 || mm >= 0.3)) ab = hr.time[i].slice(11, 13);
+        if (hr.temperature_2m[i] < tlow) tlow = hr.temperature_2m[i];
+      }
+      var hints = "";
+      if (pmax >= 50 || msum >= 1) hints += '<div class="hint blk"><b>☂ Schirm mit!</b>' + (ab ? "ab " + (+ab) + " Uhr" : "heute") + "</div>";
+      else if (pmax >= 30) hints += '<div class="hint"><b>☂ Vielleicht</b>' + pmax + " % Regen</div>";
+      if (tlow < 10) hints += '<div class="hint"><b>Mütze an!</b>tiefst ' + zahl(Math.round(tlow)) + "°</div>";
+      if ((W.uv_max || 0) >= 5) hints += '<div class="hint"><b>☀ Sonne!</b>UV ' + W.uv_max + "</div>";
+      if (hints) bw += '<div class="row" style="margin-top:.35rem">' + hints + "</div>";
+    }
+
+    // Nächste Tage
+    if (A && A.tage && A.tage.length) {
+      bt += '<div class="h">Nächste Tage</div><div class="row tage">';
+      for (var t = 0; t < A.tage.length && t < 4; t++) {
+        var d = A.tage[t];
+        bt += "<div><b>" + esc(d.wd) + "</b>" + svg(d.icon) + "<b>" + zahl(d.min) + "–" + zahl(d.max) + "°</b><br>" +
+          (d.regen_txt ? '<span class="' + (d.regen_hi ? "rh" : "") + '">☂ ' + esc(d.regen_txt) + "</span>" : "") + "</div>";
+      }
+      bt += "</div>";
+    }
+
+    // Nächster Termin (live berechnet)
+    var hero = naechsterTermin(K);
+    if (hero) {
+      var min = Math.round((hero.start - Date.now()) / 60000), laeuft = min <= 0;
+      var label = hero.ganztags ? tagLabel(hero.tag_key).split(" ")[0] : laeuft ? "Jetzt" : tageBis(tagKey(hero.start)) === 0 ? "Heute" : tageBis(tagKey(hero.start)) === 1 ? "Morgen" : WD[new Date(hero.start).getDay()] + " " + hero.datum;
+      var cd = hero.ganztags ? (hero.bis || "ganztags") : laeuft ? "bis " + hm(hero.ende) :
+        "bis " + hm(hero.ende) + " · " + (min < 60 ? "in " + min + " Min." : min < 36 * 60 ? "in " + Math.round(min / 60) + " Std." : "in " + Math.round(min / 1440) + " Tagen");
+      bk += '<div class="h">Nächster Termin</div><div class="row hero"><div class="zeitbox"><small>' + esc(label.toUpperCase()) + "</small><b>" +
+        (hero.ganztags ? "ganzt." : hm(hero.start)) + '</b></div><div class="grow"><div class="titel ell">' + esc(hero.titel) +
+        '</div><div class="small ell">' + esc(cd) + (hero.ort ? " · " + esc(hero.ort) : "") + "</div></div></div>";
+    }
+
+    // Netatmo
+    if (N && (N.innen || N.aussen)) {
+      var box = function (titel, v, extra) {
+        return "<div><div class=\"small\"><b>" + titel + "</b></div>" + (v ? '<div class="v">' + v.temp + "°" + (v.trend || "") + '</div><div class="small">' + v.feuchte + " % · " + v.min + "…" + v.max + "°" + "</div>" : '<div class="small">' + (extra || "–") + "</div>") + "</div>";
+      };
+      bn += '<div class="h">Zuhause' + (N.veraltet && N.ts ? " · Stand " + hm(N.ts * 1000) : "") + '</div><div class="row nt">' +
+        box("Innen", N.innen) + box("Aussen", N.aussen_akku_tief && N.aussen ? { temp: N.aussen.temp, trend: N.aussen.trend, feuchte: N.aussen.feuchte, min: "Batterie", max: "!" } : N.aussen, N.aussen_fehlt) +
+        (N.co2 != null ? '<div><div class="small"><b>CO₂</b></div><div class="v">' + N.co2 + '</div><div class="small">ppm ' + (N.co2_hoch ? '<span class="pill blk">LÜFTEN!</span>' : esc(N.co2_stufe)) + "</div></div>" : "") +
+        "</div>";
+    }
+
+    // Abfuhr, Pollen, Feiertag, Mond
+    var info = "";
+    if (D.abfall) {
+      var ta = tageBis(D.abfall.date);
+      var wann = ta <= 0 ? "HEUTE" : ta === 1 ? "MORGEN" : WD[new Date(D.abfall.date + "T12:00:00").getDay()];
+      info += '<div class="row"><span class="pill' + (ta <= 1 ? " blk" : "") + '">' + wann + '</span><span class="grow ell">' + esc(D.abfall.arten) + (ta > 1 ? " · in " + ta + " Tagen" : "") + "</span></div>";
+    }
+    var P = D.pollen;
+    if (P && P.aktiv && P.arten && P.arten.length) {
+      var pl = [];
+      for (var q = 0; q < P.arten.length && pl.length < 3; q++) if (P.arten[q].heute > 0 || P.arten[q].morgen > 0) pl.push(P.arten[q].name + " " + P.arten[q].heute_txt);
+      info += '<div class="row"><span class="pill' + (P.max >= 3 ? " blk" : "") + '">Pollen</span><span class="grow ell">' + esc(pl.join(" · ")) + "</span></div>";
+    }
+    if (A && A.mond) info += '<div class="row"><span class="pill">☾</span><span class="grow ell">' + esc(A.mond.naechster + " " + A.mond.wann) + "</span></div>";
+    if (A && A.feiertag) info += '<div class="row"><span class="pill">★</span><span class="grow ell">' + esc(A.feiertag.name) + " · in " + A.feiertag.tage + " Tagen</span></div>";
+    if (info) bi += '<div class="h">Ausserdem</div><div class="info">' + info + "</div>";
+    if (quer()) {
+      // Querformat: rechts unter dem nächsten Termin noch die folgenden drei
+      var danach = "", n = 0, nowMs = Date.now();
+      for (var j = 0; K && K.termine && j < K.termine.length && n < 3; j++) {
+        var x = K.termine[j];
+        if (x === hero || (x.ende && x.ende <= nowMs)) continue;
+        danach += '<div class="row" style="margin:.15rem 0"><span class="small" style="width:5.2rem"><b>' +
+          esc(tagLabel(x.ganztags ? x.tag_key : tagKey(x.start)).replace(/ (\d+)\. (\w+)$/, function (m, d, mo) { return " " + d + "." + (MON.indexOf(mo) + 1) + "."; })
+            .replace(/^(\w\w)\w+ /, "$1 ")) +
+          '</b></span><span class="small" style="width:2.6rem">' + (x.ganztags ? "ganzt." : hm(x.start)) + '</span><span class="grow ell small">' + esc(x.titel) + "</span></div>";
+        n++;
+      }
+      if (danach) bk += '<div style="margin-top:.3rem">' + danach + "</div>";
+      return h + '<div class="row spalten"><div class="sp">' + bw + bt + bi + '</div><div class="sp">' + bk + bn + "</div></div>";
+    }
+    return h + bw + bt + bk + bn + bi;
+  }
+
+  function naechsterTermin(K) {
+    if (!K || !K.termine) return null;
+    var now = Date.now(), best = null, ersterGanztag = null;
+    for (var i = 0; i < K.termine.length; i++) {
+      var t = K.termine[i];
+      if (t.ende && t.ende <= now) continue;
+      if (t.ganztags) { if (!ersterGanztag) ersterGanztag = t; continue; }
+      if (!best || t.start < best.start) best = t;
+    }
+    return best || ersterGanztag;
+  }
+
+  // Liste so füllen, dass sie genau auf den Bildschirm passt (kein Scrollen auf E-Ink, stattdessen Blättern)
+  var gemessen = false;
+  function liste(name, items, kopfVon, vorspann) {
+    gemessen = true;
+    vorspann = vorspann || "";
+    var view = $("view"), start = seitenStarts[name][seite[name]];
+    if (start == null) { seite[name] = 0; start = 0; }
+    var pagerPlatz = '<div style="height:2.6rem"></div>';
+    var h = vorspann + '<div class="liste ' + name + '">', last = null, i = start, html, n = 0;
+    for (; i < items.length; i++) {
+      var kopf = kopfVon ? kopfVon(items[i]) : null, stueck = "";
+      if (kopf && kopf !== last) stueck += '<div class="tagkopf' + (n === 0 ? " erst" : "") + '">' + esc(kopf) + "</div>";
+      stueck += items[i].html;
+      view.innerHTML = h + stueck + "</div>" + pagerPlatz;
+      if (view.scrollHeight > view.clientHeight && n > 0) break;
+      h += stueck; last = kopf; n++;
+    }
+    seitenStarts[name][seite[name] + 1] = i < items.length ? i : null;
+    seitenStarts[name].length = seite[name] + 2;
+    var mehr = i < items.length, zurueck = seite[name] > 0;
+    var pager = (mehr || zurueck) ? '<div id="pager"><span class="seite">Seite ' + (seite[name] + 1) + '</span><span data-page="-1" class="' + (zurueck ? "" : "off") + '">‹</span><span data-page="1" class="' + (mehr ? "" : "off") + '">›</span></div>' : "";
+    return h + "</div>" + pager;
+  }
+
+  function ansichtTermine() {
+    var K = D.kalender, now = Date.now(), items = [];
+    if (!K || !K.termine || !K.termine.length) return '<div class="leer">Keine Termine in den nächsten 30 Tagen.</div>';
+    for (var i = 0; i < K.termine.length; i++) {
+      var t = K.termine[i];
+      if (t.ende && t.ende <= now) continue;
+      var key = t.ganztags ? (t.start < now ? tagKey(now) : t.tag_key) : tagKey(Math.max(t.start, now));
+      var laeuft = !t.ganztags && t.start <= now;
+      items.push({ key: key, html: '<div class="it row"><div class="tz">' + (t.ganztags ? "ganzt." : laeuft ? "jetzt" : hm(t.start)) +
+        '</div><div class="grow"><div class="tt ell"><b>' + esc(t.titel) + "</b></div>" +
+        ((t.ort || (t.ganztags && t.bis) || (!t.ganztags && t.ende)) ? '<div class="small muted ell">' +
+          esc([t.ganztags ? t.bis : "bis " + hm(t.ende), t.ort].join(" · ").replace(/^ · | · $/g, "")) + "</div>" : "") + "</div></div>" });
+    }
+    return liste("termine", items, function (it) { return tagLabel(it.key); });
+  }
+
+  function oevUmschalter(rechts) {
+    return '<div class="row between" style="margin-bottom:.3rem"><div class="row">' +
+      '<span class="pill' + (oevModus === "ab" ? " blk" : "") + ' knopf" data-oev="ab">Abfahrten Wiedikon</span>' +
+      '<span class="pill' + (oevModus === "route" ? " blk" : "") + ' knopf" data-oev="route">✈ Flughafen</span></div><span class="small">' + rechts + "</span></div>";
+  }
+
+  function ansichtRoute() {
+    var R = D.route;
+    var quelle = liveRoute && Date.now() - liveRoute.stand < 10 * 60000 ? liveRoute : (R ? { stand: D.stand, verbindungen: R.verbindungen } : null);
+    var kopf = oevUmschalter(quelle ? (quelle === liveRoute ? "live · " : "Fahrplan · Stand ") + hm(quelle.stand) : "");
+    if (!quelle) return kopf + '<div class="leer">Keine Verbindungen in den Daten.</div>';
+    var now = Date.now(), items = [];
+    for (var i = 0; i < quelle.verbindungen.length; i++) {
+      var c = quelle.verbindungen[i], min = Math.floor((c.ab - now) / 60000);
+      if (min < 0) continue;
+      var wege = [];
+      for (var k = 0; k < c.teile.length; k++) {
+        var t = c.teile[k];
+        wege.push(t.fuss ? '<span class="small">zu Fuss ' + t.fuss + "'</span>" :
+          '<span class="linie ' + t.typ + '" style="margin-right:.2rem">' + esc(t.linie) + '</span><span class="small">' + hm(t.ab) + " " + esc(t.von) +
+          (t.gleis ? " (" + (t.typ === "zug" ? "Gl. " : "") + esc(t.gleis) + ")" : "") + "</span>");
+      }
+      items.push({ html: '<div class="it"><div class="row"><div class="grow"><b style="font-size:1.05rem">' + hm(c.plan) + (c.delay ? " +" + c.delay + "'" : "") + " → " + hm(c.an) + "</b>" + '<div class="small muted">' + (c.dauer ? c.dauer + " Min." : "") +
+        " · " + (c.umsteigen ? c.umsteigen + "× umsteigen" : "direkt") + '</div></div><div class="min">' + (min === 0 ? "jetzt" : min + "'") + "</div></div>" +
+        '<div class="weg">' + wege.join(' <span class="small">›</span> ') + "</div></div>" });
+    }
+    var titel = '<div class="small" style="margin-bottom:.2rem"><b>' + esc(R ? R.von.replace(/^Zürich,\s*/, "") : "") + "</b> → <b>" + esc(R ? R.nach : "") + "</b></div>";
+    if (!items.length) return kopf + titel + '<div class="leer">Keine Verbindungen mehr in den Daten.<br>Neue kommen mit der nächsten Aktualisierung.</div>';
+    return liste("oev", items, null, kopf + titel);
+  }
+
+  function ansichtOev() {
+    if (oevModus === "route") return ansichtRoute();
+    var quelle = liveOev && Date.now() - liveOev.stand < 10 * 60000 ? liveOev : (D.oev ? { stand: D.stand, abfahrten: D.oev.abfahrten } : null);
+    if (!quelle) return oevUmschalter("") + '<div class="leer">Keine Abfahrtsdaten.</div>';
+    var now = Date.now(), items = [];
+    for (var i = 0; i < quelle.abfahrten.length; i++) {
+      var a = quelle.abfahrten[i], min = Math.floor((a.ab - now) / 60000);
+      if (min < 0) continue;
+      items.push({ html: '<div class="it row"><span class="linie ' + a.typ + '">' + esc(a.linie) + '</span><div class="grow"><div class="tt ell"><b>' + esc(a.ziel) +
+        '</b></div><div class="small muted ell">' + hm(a.plan) + (a.delay ? ' <b>+' + a.delay + "'</b>" : "") + (a.gleis ? " · " + (a.typ === "zug" ? "Gleis " : "Kante ") + esc(a.gleis) : "") +
+        '</div></div><div class="min">' + (min === 0 ? "jetzt" : min + "'") + "</div></div>" });
+    }
+    var kopf = oevUmschalter((quelle === liveOev ? "live · " : "Fahrplan · Stand ") + hm(quelle.stand));
+    if (!items.length) return kopf + '<div class="leer">Keine Abfahrten mehr in den Daten.<br>Neue kommen mit der nächsten Aktualisierung.</div>';
+    return liste("oev", items, null, kopf);
+  }
+
+  function ansichtNews() {
+    var N = D.news;
+    if (!N || !N.length) return '<div class="leer">Keine News.</div>';
+    var items = [];
+    for (var i = 0; i < N.length; i++) {
+      var n = N[i], neu = n.ts && Date.now() / 1000 - n.ts < 3600;
+      items.push({ html: '<div class="it"><div class="zeit">' + (n.ts ? hm(n.ts * 1000) : "") + (neu ? '<span class="neu">NEU</span>' : "") +
+        '</div><div class="titel">' + esc(n.title) + "</div>" + (n.lead ? '<div class="lead">' + esc(n.lead.length > 220 ? n.lead.slice(0, 217) + "…" : n.lead) + "</div>" : "") + "</div>" });
+    }
+    return liste("news", items, null, '<div class="row between" style="margin-bottom:.2rem"><b>News des Tages</b><span class="small">SRF</span></div>');
+  }
+
+  function zeichnen(erzwingen) {
+    var view = $("view"), html;
+    gemessen = false;
+    if (!D) {
+      html = schluessel() ? '<div class="leer">Lade Daten …' + (ladeFehler ? "<br><br>Fehler: " + esc(ladeFehler) : "") + "</div>" :
+        '<div class="leer">Schlüssel fürs Dashboard eingeben:<br><input id="keyin" type="text" autocapitalize="off" autocorrect="off"><br><span class="btn" id="keyok">OK</span></div>';
+    } else {
+      try {
+        html = tab === "heute" ? ansichtHeute() : tab === "termine" ? ansichtTermine() : tab === "oev" ? ansichtOev() : ansichtNews();
+      } catch (e) { html = '<div class="leer">Anzeigefehler: ' + esc(e.message) + "</div>"; }
+    }
+    // E-Ink: nur neu zeichnen, wenn sich etwas geändert hat
+    // liste() misst direkt im Bildschirm, danach muss das Ergebnis in jedem Fall gesetzt werden
+    if (erzwingen || gemessen || html !== letztesHtml) { view.innerHTML = html; letztesHtml = html; }
+
+    var alt = D && D.stand ? Math.round((Date.now() - D.stand) / 60000) : 0;
+    $("stand").innerHTML = D && D.stand ? "Stand " + hm(D.stand) + (alt > 45 ? " <b>Daten " + alt + " Min. alt</b>" : "") : "";
+    var st = [];
+    if (ladeFehler) st.push("<b>offline</b>");
+    if (D && D.fehler && D.fehler.length) st.push(D.fehler.length + " Quelle(n) gestört");
+    if (D && D.quellen) st.push("Wetter: " + esc(D.quellen));
+    $("status").innerHTML = st.join(" · ");
+  }
+
+  // ---------- Start ----------
+  // Schriftgrösse an die Bildschirmbreite anpassen (Tolino Shine 3 ≈ 536 CSS-Pixel breit)
+  // Hoch- oder Querformat (in Fully einstellbar); Schrift richtet sich nach der kürzeren Seite
+  function quer() { return (window.innerWidth || 0) > (window.innerHeight || 0); }
+  function skalieren() {
+    var w = window.innerWidth || 536, hh = window.innerHeight || 724;
+    document.documentElement.style.fontSize = Math.max(12, Math.min(26, Math.min(w, hh) / 34)) + "px";
+    document.body.className = quer() ? "quer" : "";
+  }
+  skalieren();
+  window.addEventListener("resize", function () { skalieren(); zeichnen(true); });
+  window.addEventListener("hashchange", laden);
+  navZeichnen();
+  laden();
+
+  setInterval(laden, REFRESH_DATEN);
+  setInterval(function () { if (D) zeichnen(false); }, 30000); // Uhr, Countdown, ÖV-Minuten
+  setInterval(function () { if (tab === "oev") oevLiveHolen(); }, 60000);
+  window.__dashboard = { zeichnen: zeichnen, setDaten: function (d) { D = d; zeichnen(true); } }; // für Tests
+})();
+</script>
+</body>
+</html>
