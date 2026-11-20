@@ -427,7 +427,26 @@
     try { x.send(); } catch (e) { fehler(e.message); }
   }
 
+  // Neue Version der Seite erkennen: index.html holen und mit dem Stand beim Start vergleichen.
+  // Nur bei vollständiger Antwort neu laden, damit der Tolino offline nicht mit leerer Seite dasteht.
+  var seitenStand = null;
+  function textHash(t) { var h = 0; for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return h + ":" + t.length; }
+  function versionPruefen() {
+    var x = new XMLHttpRequest();
+    x.open("GET", "index.html?v=" + Date.now(), true);
+    x.timeout = 15000;
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4 || x.status !== 200) return;
+      var t = x.responseText || "";
+      if (t.indexOf("</html>") < 0 || t.indexOf("ansichtHeute") < 0) return;
+      var h = textHash(t);
+      if (seitenStand === null) seitenStand = h;
+      else if (h !== seitenStand) location.reload(true);
+    };
+    try { x.send(); } catch (e) {}
+  }
   function laden() {
+    versionPruefen();
     var k = schluessel();
     if (!k) { zeichnen(true); return; }
     holen(k + "/data.json?t=" + Date.now(), function (j) {
