@@ -59,20 +59,22 @@ function verbindungKurz(c) {
     } : { fuss: Math.round((s.walk?.duration || 0) / 60) }).filter(t => !t.fuss || t.fuss > 0),
   };
 }
-async function verbindungen(vonListe, nach) {
-  let letzterFehler = "";
-  for (const von of vonListe) {          // erst die Adresse, sonst die Ersatz-Haltestelle
+// Mehrere Start-Haltestellen; optional mit Fussweg in Minuten: "Zürich, Binz=6"
+async function verbindungen(starts, nach) {
+  const fehler = [];
+  const listen = await Promise.all(starts.map(async st => {
     try {
-      const url = `https://transport.opendata.ch/v1/connections?from=${encodeURIComponent(von)}&to=${encodeURIComponent(nach)}&limit=8`;
+      const url = `https://transport.opendata.ch/v1/connections?from=${encodeURIComponent(st.name)}&to=${encodeURIComponent(nach)}&limit=6`;
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error(`${res.status}`);
       const d = await res.json();
-      const list = (d.connections || []).map(verbindungKurz).filter(c => c.ab);
-      if (list.length) return { von, nach, verbindungen: list };
-      letzterFehler = `keine Verbindungen ab «${von}»`;
-    } catch (e) { letzterFehler = `${von}: ${e.message}`; }
-  }
-  throw new Error(letzterFehler);
+      return (d.connections || []).map(verbindungKurz).filter(c => c.ab)
+        .map(c => ({ ...c, start: st.name.replace(/^Zürich,\s*/, ""), fuss: st.fuss }));
+    } catch (e) { fehler.push(`${st.name}: ${e.message}`); return []; }
+  }));
+  const alle = listen.flat().sort((a, b) => (a.ab - a.fuss * 60000) - (b.ab - b.fuss * 60000));
+  if (!alle.length) throw new Error(fehler.join("; ") || "keine Verbindungen");
+  return { starts, nach, verbindungen: alle, warnung: fehler.join("; ") };
 }
 
 async function main() {
@@ -97,7 +99,10 @@ async function main() {
   };
 
   const stationen = env("OEV_STATIONEN", "Zürich Wiedikon;Zürich, Bahnhof Wiedikon").split(";").map(s => s.trim()).filter(Boolean);
-  const routeVon = [env("ROUTE_VON", "Zürich, Im Tiergarten 13"), env("ROUTE_VON_ERSATZ", "Zürich Wiedikon")];
+  const routeVon = env("ROUTE_VON", "Zürich, Höfliweg;Zürich, Goldbrunnenplatz;Zürich, Binz").split(";").map(x => {
+    const [name, fuss] = x.split("=");
+    return { name: name.trim(), fuss: Math.max(0, parseInt(fuss, 10) || 0) };
+  }).filter(x => x.name);
   const routeNach = env("ROUTE_NACH", "Zürich Flughafen");
   const [daten, abfahrten, route] = await Promise.all([
     run(input),
