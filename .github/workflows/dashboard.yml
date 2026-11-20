@@ -31,6 +31,24 @@ jobs:
           key: state-${{ github.run_id }}
           restore-keys: state-
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Sport aus den bestehenden TRMNL-Skripten (Kopien in sport/), nur alle 1–2 Std., um die APIs zu schonen
+      - name: Sport holen
+        env:
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+        run: |
+          mkdir -p state
+          faellig() { [ ! -f "state/$1.ts" ] || [ $(( $(date +%s) - $(cat "state/$1.ts") )) -ge "$2" ]; }
+          if faellig f1 6600; then
+            python3 sport/f1_fetch.py --dry-run > state/f1.neu && mv state/f1.neu state/f1.json && date +%s > state/f1.ts || echo "F1: nicht erreichbar"
+          fi
+          if [ -n "$FOOTBALL_DATA_TOKEN" ] && faellig bayern 3300; then
+            pip install -q requests && python3 sport/fetch_bayern.py --dry-run > state/bayern.neu && mv state/bayern.neu state/bayern.json && date +%s > state/bayern.ts || echo "Bayern: nicht erreichbar"
+          fi
+
       - name: Daten holen
         run: node build/build.js
         env:
@@ -45,8 +63,12 @@ jobs:
           NEWS_FEED: ${{ vars.NEWS_FEED }}
           OEV_STATIONEN: ${{ vars.OEV_STATIONEN }}
           ROUTE_VON: ${{ vars.ROUTE_VON }}
-          ROUTE_VON_ERSATZ: ${{ vars.ROUTE_VON_ERSATZ }}
           ROUTE_NACH: ${{ vars.ROUTE_NACH }}
+
+      # Adventskalender: alte Postkarten einmalig von Wikimedia holen (danach aus dem Cache)
+      - name: Adventsbilder
+        run: |
+          pip install -q pillow && python3 build/advent_bilder.py || echo "Adventsbilder - Problem, siehe oben"
 
       - uses: actions/cache/save@v4
         if: always() && hashFiles('state/state.json') != ''
@@ -54,17 +76,27 @@ jobs:
           path: state
           key: state-${{ github.run_id }}
 
-      # Auf den eigenen Webspace (cyon) hochladen
+      # Auf den eigenen Webspace (cyon) hochladen – mit SSH-Schlüssel (SFTP_KEY) oder Passwort (SFTP_PASSWORD)
       - name: Hochladen per SFTP
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_USER: ${{ secrets.SFTP_USER }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_KEY: ${{ secrets.SFTP_KEY }}
           SFTP_PFAD: ${{ secrets.SFTP_PFAD }}
         run: |
           sudo apt-get install -y -qq lftp > /dev/null
-          lftp -u "$SFTP_USER","$SFTP_PASSWORD" "sftp://$SFTP_HOST" -e "
-            set sftp:auto-confirm yes; set net:max-retries 2; set net:timeout 20;
+          if [ -n "$SFTP_KEY" ]; then
+            mkdir -p ~/.ssh && printf '%s\n' "$SFTP_KEY" > ~/.ssh/tolino_key && chmod 600 ~/.ssh/tolino_key
+            VERBINDUNG="set sftp:connect-program 'ssh -a -x -i $HOME/.ssh/tolino_key -o StrictHostKeyChecking=accept-new';"
+            LOGIN="$SFTP_USER,"
+          else
+            VERBINDUNG=""
+            LOGIN="$SFTP_USER,$SFTP_PASSWORD"
+          fi
+          lftp -u "$LOGIN" "sftp://$SFTP_HOST" -e "
+            $VERBINDUNG set sftp:auto-confirm yes; set net:max-retries 2; set net:timeout 20;
             mkdir -p -f $SFTP_PFAD; cd $SFTP_PFAD;
-            mirror -R --no-perms --verbose=0 _site . ;
+            mirror -R --no-perms --verbose=0 --exclude advent/ _site . ;
+            mirror -R --no-perms --verbose=0 --ignore-time _site/advent advent ;
             bye"
