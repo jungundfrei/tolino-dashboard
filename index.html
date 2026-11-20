@@ -300,9 +300,11 @@
 
   function routeLiveHolen() {
     var R = D && D.route;
-    if (!OEV_LIVE || !R) return;
-    holen("https://transport.opendata.ch/v1/connections?limit=6&from=" + encodeURIComponent(R.von) + "&to=" + encodeURIComponent(R.nach), function (j) {
-      var cs = j.connections || [], out = [];
+    if (!OEV_LIVE || !R || !R.starts) return;
+    var offen = R.starts.length, out = [];
+    for (var si = 0; si < R.starts.length; si++) (function (st) {
+    holen("https://transport.opendata.ch/v1/connections?limit=6&from=" + encodeURIComponent(st.name) + "&to=" + encodeURIComponent(R.nach), function (j) {
+      var cs = j.connections || [];
       for (var i = 0; i < cs.length; i++) {
         var c = cs[i], f = c.from || {}, teile = [], sec = c.sections || [];
         for (var k = 0; k < sec.length; k++) {
@@ -319,10 +321,19 @@
         var d = /(\d+)d(\d+):(\d+)/.exec(c.duration || "");
         var plan = (f.departureTimestamp || 0) * 1000;
         out.push({ plan: plan, ab: isoMs(f.prognosis && f.prognosis.departure) || plan, an: ((c.to && c.to.arrivalTimestamp) || 0) * 1000,
-          dauer: d ? +d[1] * 1440 + +d[2] * 60 + +d[3] : null, umsteigen: c.transfers || 0, delay: f.delay || 0, teile: teile });
+          dauer: d ? +d[1] * 1440 + +d[2] * 60 + +d[3] : null, umsteigen: c.transfers || 0, delay: f.delay || 0, teile: teile,
+          start: st.name.replace(/^Zürich,\s*/, ""), fuss: st.fuss || 0 });
       }
-      if (out.length) { liveRoute = { stand: Date.now(), verbindungen: out }; if (tab === "oev") zeichnen(false); }
-    }, function () {});
+      fertig();
+    }, fertig);
+    })(R.starts[si]);
+    function fertig() {
+      if (--offen > 0) return;
+      if (!out.length) return;
+      out.sort(function (a, b) { return (a.ab - a.fuss * 60000) - (b.ab - b.fuss * 60000); });
+      liveRoute = { stand: Date.now(), verbindungen: out };
+      if (tab === "oev") zeichnen(false);
+    }
   }
 
   // ---------- Ansichten ----------
@@ -494,7 +505,7 @@
     if (!quelle) return kopf + '<div class="leer">Keine Verbindungen in den Daten.</div>';
     var now = Date.now(), items = [];
     for (var i = 0; i < quelle.verbindungen.length; i++) {
-      var c = quelle.verbindungen[i], min = Math.floor((c.ab - now) / 60000);
+      var c = quelle.verbindungen[i], min = Math.floor((c.ab - (c.fuss || 0) * 60000 - now) / 60000);
       if (min < 0) continue;
       var wege = [];
       for (var k = 0; k < c.teile.length; k++) {
@@ -503,11 +514,13 @@
           '<span class="linie ' + t.typ + '" style="margin-right:.2rem">' + esc(t.linie) + '</span><span class="small">' + hm(t.ab) + " " + esc(t.von) +
           (t.gleis ? " (" + (t.typ === "zug" ? "Gl. " : "") + esc(t.gleis) + ")" : "") + "</span>");
       }
-      items.push({ html: '<div class="it"><div class="row"><div class="grow"><b style="font-size:1.05rem">' + hm(c.plan) + (c.delay ? " +" + c.delay + "'" : "") + " → " + hm(c.an) + "</b>" + '<div class="small muted">' + (c.dauer ? c.dauer + " Min." : "") +
-        " · " + (c.umsteigen ? c.umsteigen + "× umsteigen" : "direkt") + '</div></div><div class="min">' + (min === 0 ? "jetzt" : min + "'") + "</div></div>" +
+      items.push({ html: '<div class="it"><div class="row"><div class="grow"><span class="pill">ab ' + esc(c.start || "") + "</span> " + '<b style="font-size:1.05rem">' + hm(c.plan) + (c.delay ? " +" + c.delay + "'" : "") + " → " + hm(c.an) + "</b>" + '<div class="small muted">' + (c.dauer ? c.dauer + " Min." : "") +
+        " · " + (c.umsteigen ? c.umsteigen + "× umsteigen" : "direkt") + '</div></div><div class="min">' + (min === 0 ? "los!" : min + "'") + "</div></div>" +
         '<div class="weg">' + wege.join(' <span class="small">›</span> ') + "</div></div>" });
     }
-    var titel = '<div class="small" style="margin-bottom:.2rem"><b>' + esc(R ? R.von.replace(/^Zürich,\s*/, "") : "") + "</b> → <b>" + esc(R ? R.nach : "") + "</b></div>";
+    var namen = [];
+    for (var z = 0; R && R.starts && z < R.starts.length; z++) namen.push(R.starts[z].name.replace(/^Zürich,\s*/, ""));
+    var titel = '<div class="small" style="margin-bottom:.2rem">Nach <b>' + esc(R ? R.nach : "") + "</b> ab " + esc(namen.join(", ")) + (R && R.starts && R.starts[0].fuss ? " · Minuten = wann du los musst" : "") + "</div>";
     if (!items.length) return kopf + titel + '<div class="leer">Keine Verbindungen mehr in den Daten.<br>Neue kommen mit der nächsten Aktualisierung.</div>';
     return liste("oev", items, null, kopf + titel);
   }
