@@ -64,7 +64,7 @@ async function verbindungen(starts, nach) {
   const fehler = [];
   const listen = await Promise.all(starts.map(async st => {
     try {
-      const url = `https://transport.opendata.ch/v1/connections?from=${encodeURIComponent(st.name)}&to=${encodeURIComponent(nach)}&limit=6`;
+      const url = `https://transport.opendata.ch/v1/connections?from=${encodeURIComponent(st.name)}&to=${encodeURIComponent(nach)}&limit=10`;
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error(`${res.status}`);
       const d = await res.json();

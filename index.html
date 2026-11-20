@@ -228,6 +228,7 @@
   // ---------- Grundgerüst ----------
   var REFRESH_DATEN = 5 * 60 * 1000;   // data.json alle 5 Min. neu laden (GitHub aktualisiert alle ~15 Min.)
   var OEV_VORLAUF = 10;                // Abfahrten Wiedikon erst ab so vielen Minuten nach jetzt zeigen (Weg zum Bahnhof)
+  var ROUTE_VORLAUF = 15;              // Flughafen-Verbindungen erst ab so vielen Minuten nach jetzt
   var OEV_LIVE = true;                 // ÖV direkt bei transport.opendata.ch holen, wenn der Tolino das schafft
   var WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
   var WD_VOLL = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
@@ -496,7 +497,9 @@
     if (!OEV_LIVE || !R || !R.starts) return;
     var offen = R.starts.length, out = [];
     for (var si = 0; si < R.starts.length; si++) (function (st) {
-    holen("https://transport.opendata.ch/v1/connections?limit=6&from=" + encodeURIComponent(st.name) + "&to=" + encodeURIComponent(R.nach), function (j) {
+    var ab = new Date(Date.now() + ROUTE_VORLAUF * 60000);
+    holen("https://transport.opendata.ch/v1/connections?limit=6&from=" + encodeURIComponent(st.name) + "&to=" + encodeURIComponent(R.nach) +
+      "&date=" + ab.getFullYear() + "-" + pad(ab.getMonth() + 1) + "-" + pad(ab.getDate()) + "&time=" + pad(ab.getHours()) + ":" + pad(ab.getMinutes()), function (j) {
       var cs = j.connections || [];
       for (var i = 0; i < cs.length; i++) {
         var c = cs[i], f = c.from || {}, teile = [], sec = c.sections || [];
@@ -721,12 +724,12 @@
   function ansichtRoute() {
     var R = D.route;
     var quelle = liveRoute && Date.now() - liveRoute.stand < 10 * 60000 ? liveRoute : (R ? { stand: D.stand, verbindungen: R.verbindungen } : null);
-    var kopf = oevUmschalter(quelle ? (quelle === liveRoute ? "live · " : "Fahrplan · Stand ") + hm(quelle.stand) : "");
+    var kopf = oevUmschalter(quelle ? "ab " + hm(Date.now() + ROUTE_VORLAUF * 60000) + " · " + (quelle === liveRoute ? "live · " : "Fahrplan · Stand ") + hm(quelle.stand) : "");
     if (!quelle) return kopf + '<div class="leer">Keine Verbindungen in den Daten.</div>';
     var now = Date.now(), items = [];
     for (var i = 0; i < quelle.verbindungen.length; i++) {
       var c = quelle.verbindungen[i], min = Math.floor((c.ab - (c.fuss || 0) * 60000 - now) / 60000);
-      if (min < 0) continue;
+      if (min < ROUTE_VORLAUF) continue;
       var wege = [];
       for (var k = 0; k < c.teile.length; k++) {
         var t = c.teile[k];
