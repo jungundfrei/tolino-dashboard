@@ -1,0 +1,70 @@
+name: Tolino-Dashboard
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # alle 15 Minuten (GitHub startet oft ein paar Minuten später)
+  workflow_dispatch:          # «Run workflow» von Hand
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboard
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Netatmo-Tokens vom letzten Lauf zurückholen (Netatmo tauscht sie bei jeder Erneuerung aus)
+      - uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+
+      - name: Daten holen
+        run: node build/build.js
+        env:
+          DASHBOARD_KEY: ${{ secrets.DASHBOARD_KEY }}
+          KALENDER_1: ${{ secrets.KALENDER_1 }}
+          KALENDER_2: ${{ secrets.KALENDER_2 }}
+          NETATMO_CLIENT_ID: ${{ secrets.NETATMO_CLIENT_ID }}
+          NETATMO_CLIENT_SECRET: ${{ secrets.NETATMO_CLIENT_SECRET }}
+          NETATMO_REFRESH_TOKEN: ${{ secrets.NETATMO_REFRESH_TOKEN }}
+          PLZ: ${{ vars.PLZ }}
+          ORT: ${{ vars.ORT }}
+          NEWS_FEED: ${{ vars.NEWS_FEED }}
+          OEV_STATIONEN: ${{ vars.OEV_STATIONEN }}
+          ROUTE_VON: ${{ vars.ROUTE_VON }}
+          ROUTE_VON_ERSATZ: ${{ vars.ROUTE_VON_ERSATZ }}
+          ROUTE_NACH: ${{ vars.ROUTE_NACH }}
+
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('state/state.json') != ''
+        with:
+          path: state
+          key: state-${{ github.run_id }}
+
+      # Auf den eigenen Webspace (cyon) hochladen
+      - name: Hochladen per SFTP
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PFAD: ${{ secrets.SFTP_PFAD }}
+        run: |
+          sudo apt-get install -y -qq lftp > /dev/null
+          lftp -u "$SFTP_USER","$SFTP_PASSWORD" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes; set net:max-retries 2; set net:timeout 20;
+            mkdir -p -f $SFTP_PFAD; cd $SFTP_PFAD;
+            mirror -R --no-perms --verbose=0 _site . ;
+            bye"
