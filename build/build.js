@@ -95,7 +95,7 @@ async function main() {
     netatmo_client_id: env("NETATMO_CLIENT_ID"),
     netatmo_client_secret: env("NETATMO_CLIENT_SECRET"),
     netatmo_refresh_token: env("NETATMO_REFRESH_TOKEN"),
-    trmnl: { state },
+    trmnl: { state: state.trmnl || state },
   };
 
   const stationen = env("OEV_STATIONEN", "Zürich Wiedikon;Zürich, Bahnhof Wiedikon").split(";").map(s => s.trim()).filter(Boolean);
@@ -110,27 +110,47 @@ async function main() {
     verbindungen(routeVon, routeNach).catch(e => ({ fehler: e.message })),
   ]);
 
-  // Netatmo-Tokens für den nächsten Lauf aufheben, aber nicht veröffentlichen
+  // Antwortet eine Quelle nicht, den letzten guten Stand (höchstens 3 Std. alt) weiterverwenden,
+  // damit z. B. das Wetter nicht einfach verschwindet. Im Dashboard steht dann «älterer Stand».
+  const letzte = state.letzte || {};
+  const jetzt = Date.now();
+  for (const k of ["wetter", "ausblick", "abfall", "kalender", "news", "netatmo", "pollen"]) {
+    if (daten[k]) letzte[k] = { ts: jetzt, wert: daten[k] };
+    else if (letzte[k] && jetzt - letzte[k].ts < 3 * 3600e3) {
+      daten[k] = letzte[k].wert;
+      (daten.aelter = daten.aelter || []).push(k);
+    }
+  }
+
+  // Netatmo-Tokens und letzte Werte für den nächsten Lauf aufheben, aber nicht veröffentlichen
   fs.mkdirSync(path.dirname(STATE), { recursive: true });
-  fs.writeFileSync(STATE, JSON.stringify(daten.trmnl_state || {}));
+  fs.writeFileSync(STATE, JSON.stringify({ trmnl: daten.trmnl_state || {}, letzte }));
   delete daten.trmnl_state;
 
   if (Array.isArray(abfahrten)) daten.oev = { stationen, abfahrten };
   else { daten.oev = null; daten.fehler.push(`oev: ${abfahrten.fehler}`); }
   if (route.verbindungen) daten.route = route;
   else { daten.route = null; daten.fehler.push(`route: ${route.fehler}`); }
+  // Sport (vom Schritt «Sport holen» in state/ abgelegt)
+  const lies = name => {
+    try {
+      return { ...JSON.parse(fs.readFileSync(path.join(ROOT, "state", `${name}.json`), "utf8")),
+               ts: +fs.readFileSync(path.join(ROOT, "state", `${name}.ts`), "utf8") * 1000 };
+    } catch { return null; }
+  };
+  daten.sport = { f1: lies("f1"), bayern: lies("bayern") };
   daten.stand = Date.now();
 
   fs.mkdirSync(path.join(SITE, key), { recursive: true });
   fs.copyFileSync(path.join(ROOT, "index.html"), path.join(SITE, "index.html"));
   fs.writeFileSync(path.join(SITE, key, "data.json"), JSON.stringify(daten));
   fs.writeFileSync(path.join(SITE, "robots.txt"), "User-agent: *\nDisallow: /\n");
-  // Apache (cyon): kein Ordner-Listing, nicht in Suchmaschinen, data.json nie aus dem Cache
+  // Apache (cyon): kein Ordner-Listing, nicht in Suchmaschinen, Seite und data.json nie aus dem Cache
   fs.writeFileSync(path.join(SITE, ".htaccess"), [
     "Options -Indexes",
     "<IfModule mod_headers.c>",
     '  Header set X-Robots-Tag "noindex, nofollow"',
-    '  <FilesMatch "\\.json$">',
+    '  <FilesMatch "\\.(json|html)$">',
     '    Header set Cache-Control "no-store"',
     "  </FilesMatch>",
     "</IfModule>", ""].join("\n"));

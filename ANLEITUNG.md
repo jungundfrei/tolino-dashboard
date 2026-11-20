@@ -4,8 +4,11 @@ Touch-Dashboard für den Tolino Shine 3 (Fully Kiosk Browser 1.44.1) mit vier Ta
 
 - **Heute:** Uhr, Wetter mit Schirm-/Mütze-Hinweis, nächste 4 Tage, nächster Termin, Netatmo, Abfuhr, Feiertag, Mond
 - **Termine:** Familienkalender der nächsten 30 Tage, nach Tagen gruppiert
-- **ÖV:** Abfahrten ab Bahnhof Wiedikon (S-Bahn und Tram/Bus) mit Minuten-Countdown; per Knopf umschaltbar auf die nächsten Verbindungen von zuhause zum Flughafen
-- **News:** die neuesten SRF-Meldungen mit Vorspann
+- **ÖV:** Abfahrten ab Bahnhof Wiedikon (S-Bahn und Tram/Bus) mit Minuten-Countdown; per Knopf umschaltbar auf die nächsten Verbindungen zum Flughafen ab Höfliweg, Goldbrunnenplatz und Binz
+- **Sport:** umschaltbar zwischen Formel 1 (nächster GP mit allen Sessions, Strecke, letztes Podium, Fahrer-WM) und FC Bayern (nächstes/letztes Spiel, Tabelle, Topskorer, Champions League). Die Daten kommen aus Kopien der TRMNL-Skripte in `sport/`, F1 alle 2 Std., Bayern stündlich.
+- **Advent** (vom 1. Advent bis 26. Dezember): Adventskranz, an jedem Adventssonntag brennt eine Kerze mehr, dazu 24 Türchen mit je einem Weihnachtsbild. Das Türchen des Tages ist offen, frühere lassen sich antippen und nochmals anschauen.
+
+Die Tabs sind standardmässig links. Für Tabs unten die Seite einmal mit `#k=…&nav=unten` öffnen (zurück mit `&nav=seite`); der Tolino merkt sich die Wahl.
 
 Längere Listen werden mit ‹ › geblättert statt gescrollt (schont das E-Ink). Ein zweites Tippen auf den Tab springt zurück zur ersten Seite.
 
@@ -39,12 +42,14 @@ Im Repo unter **Settings → Secrets and variables → Actions → New repositor
 
 Optional:
 
+- `FOOTBALL_DATA_TOKEN`: derselbe Token von football-data.org wie beim FC-Bayern-Plugin (ohne ihn bleibt die Bayern-Seite leer)
+
 - `KALENDER_2`: ein zweiter Kalender
 - `NETATMO_CLIENT_ID`, `NETATMO_CLIENT_SECRET`, `NETATMO_REFRESH_TOKEN`: **Wichtig: eine eigene, zweite Netatmo-App** auf dev.netatmo.com anlegen, nicht die vom TRMNL verwenden. Netatmo tauscht den Token bei jeder Erneuerung aus. Würden TRMNL und Tolino dieselbe App nutzen, würden sie sich gegenseitig abmelden. Token erzeugen wie in der TRMNL-Anleitung (Scope `read_station`, Refresh Token kopieren).
 
 Unter **Variables** (gleiche Seite, Reiter «Variables») kannst du optional ändern: `PLZ` (Standard 8055), `ORT` (Zürich), `NEWS_FEED` (SRF), `OEV_STATIONEN` (Standard `Zürich Wiedikon;Zürich, Bahnhof Wiedikon`, mehrere mit Strichpunkt).
 
-Für die Verbindungen zum Flughafen (ÖV-Tab, Knopf «✈ Flughafen»): `ROUTE_VON` (Standard `Zürich, Im Tiergarten 13`), `ROUTE_VON_ERSATZ` (wird genommen, falls der Fahrplandienst die Adresse nicht kennt; Standard `Zürich Wiedikon`, besser deine nächste Haltestelle eintragen) und `ROUTE_NACH` (Standard `Zürich Flughafen`).
+Für die Verbindungen zum Flughafen (ÖV-Tab, Knopf «✈ Flughafen»): `ROUTE_VON` (Standard `Zürich, Höfliweg;Zürich, Goldbrunnenplatz;Zürich, Binz`, mehrere mit Strichpunkt) und `ROUTE_NACH` (Standard `Zürich Flughafen`). Die Verbindungen aller Start-Haltestellen werden gemischt und nach Abfahrt sortiert. Optional lässt sich der Fussweg in Minuten anhängen, z. B. `Zürich, Binz=7`. Dann zeigt die Minutenzahl rechts, wann du zu Hause losgehen musst.
 
 ### 3. Ersten Lauf starten
 

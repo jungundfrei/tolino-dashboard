@@ -15,13 +15,13 @@ function field(input, key, fallback) {
 }
 
 async function getJson(url) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(2200), headers: { "User-Agent": "TRMNL-Dashboard" } });
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "User-Agent": "TRMNL-Dashboard" } });
   if (!res.ok) throw new Error(`${res.status} ${url}`);
   return res.json();
 }
 
 async function getText(url) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(2200), headers: { "User-Agent": "TRMNL-Dashboard" } });
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "User-Agent": "TRMNL-Dashboard" } });
   if (!res.ok) throw new Error(`${res.status} ${url}`);
   return res.text();
 }
@@ -203,7 +203,7 @@ const MS_FC = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting";
 const MS_POLLEN = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-pollen";
 const MS_TAGESPARAM = { max: "tre200dx", min: "tre200dn", regen: "rka150d0", symbol: "jp2000d0" };
 
-async function getLatin1(url, timeout = 3500) {
+async function getLatin1(url, timeout = 8000) {
   const res = await fetch(url, { signal: AbortSignal.timeout(timeout), headers: { "User-Agent": "TRMNL-Dashboard" } });
   if (!res.ok) throw new Error(`${res.status} ${url.split("/").pop()}`);
   return Buffer.from(await res.arrayBuffer()).toString("latin1");
@@ -567,7 +567,7 @@ async function kalender(quellen, today) {
   const all = [], fehler = [];
   await Promise.all(quellen.map(async (q, qi) => {
     try {
-      const res = await fetch(q.url, { signal: AbortSignal.timeout(3500) });
+      const res = await fetch(q.url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const events = parseEvents(await res.text());
       // Einzeln geänderte/abgesagte Termine einer Serie ersetzen die Serien-Instanz
@@ -636,7 +636,7 @@ async function netatmoToken(cfg, alt, neu) {
   const rt = formNeu ? cfg.refresh : (alt.rt || cfg.refresh);
   if (!rt) throw new Error("Refresh-Token fehlt im Formular");
   const res = await fetch("https://api.netatmo.com/oauth2/token", {
-    method: "POST", signal: AbortSignal.timeout(3000),
+    method: "POST", signal: AbortSignal.timeout(8000),
     headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
     body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: rt, client_id: cfg.id, client_secret: cfg.secret }),
   });
@@ -650,7 +650,7 @@ async function netatmoToken(cfg, alt, neu) {
 async function netatmo(cfg, alt, neu) {
   if (!cfg.id || !cfg.secret) return null;
   const hole = at => fetch("https://api.netatmo.com/api/getstationsdata?get_favorites=false", {
-    signal: AbortSignal.timeout(3000), headers: { Authorization: `Bearer ${at}` },
+    signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${at}` },
   });
   let res = await hole(await netatmoToken(cfg, alt, neu));
   if (res.status === 401 || res.status === 403) {          // Access-Token doch ungültig → einmal neu holen
